@@ -17,37 +17,26 @@ app.use(
   })
 );
 
-const authenticatedUser = (username, password) => {
-  let validusers = users.filter(
-    (user) => user.name === username && user.passeord === password
-  );
-  return validusers.length > 0;
-};
-
 app.use("/customer/auth/*", function auth(req, res, next) {
   //Write the authenication mechanism here
-  const username = req.body.username;
-  const password = req.body.password;
+  if (req.session.authorization) {
+    // セッションからトークンを取得
+    token = req.session.authorization["accessToken"];
 
-  if (!username || !passeord) {
-    return res.status(404).json({ message: "Error log in" });
-  }
-
-  if (authenticatedUser(username, password)) {
-    let accessToken = jwt.sign(
-      {
-        data: password,
-      },
-      "access",
-      { expiresIn: 60 * 60 }
-    );
-
-    req.session.authorization = {
-      accessToken,
-      username,
-    };
-
-    return next();
+    // トークンを検証
+    jwt.verify(token, "access", (err, user) => {
+      if (!err) {
+        // トークンが正常であれば、ユーザーオブジェクトをリクエストに追加して次のミドルウェアへ制御を渡す
+        req.user = user;
+        next();
+      } else {
+        // トークンが無効な場合、エラーレスポンスを返す
+        return res.status(403).json({ message: "User not authenticated" });
+      }
+    });
+  } else {
+    // セッションに認証情報が存在しない場合、エラーレスポンスを返す
+    return res.status(403).json({ message: "User not logged in" });
   }
 });
 
